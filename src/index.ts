@@ -1,15 +1,13 @@
 // ref:
 // - https://umijs.org/plugins/api
 import { IApi } from '@umijs/types';
-import { resolve, join, relative, sep } from 'path';
+import { join } from 'path';
 import { utils } from 'umi';
 import { readFileSync } from 'fs';
 
 const { Mustache, winPath } = utils;
 
 export default function(api: IApi) {
-  api.logger.info('use plugin');
-
   const defaultPath = 'src/assets/svg';
   // 配置插件参数
   api.describe({
@@ -45,42 +43,40 @@ export default function(api: IApi) {
   });
 
   // 生成临时文件
-  api.onGenerateFiles({
-    fn() {
-      // loadSvg.ts
-      const loadSvgTpl = readFileSync(join(__dirname, 'loadSvg.tpl'), 'utf-8');
-      api.writeTmpFile({
-        path: 'plugin-svg-sprite/loadSvg.ts',
-        content: Mustache.render(loadSvgTpl, {
-          path: winPath(absolutePath),
-        }),
-      });
+  api.onGenerateFiles(() => {
+    // loadSvg.ts
+    const loadSvgTpl = readFileSync(join(__dirname, 'loadSvg.tpl'), 'utf-8');
+    api.writeTmpFile({
+      path: 'plugin-svg-sprite/loadSvg.ts',
+      content: Mustache.render(loadSvgTpl, {
+        path: winPath(absolutePath),
+      }),
+    });
 
-      // icon component
-      api.writeTmpFile({
-        path: 'plugin-svg-sprite/icon.tsx',
-        content: `
-          import React from "react";
-          export default props => {
-            return React.createElement(require("${winPath(join(__dirname, './icon/index.js'))}").default, {...props});
-          }
-        `
-      })
-    },
-    stage: -1,
+    // icon component
+    const iconTpl = readFileSync(join(__dirname, 'icon.tsx.tpl'), 'utf-8');
+    api.writeTmpFile({
+      path: 'plugin-svg-sprite/icon.tsx',
+      content: Mustache.render(iconTpl, {}),
+    });
+
+    // icon component style
+    const iconStyleTpl = readFileSync(join(__dirname, 'icon.less.tpl'), 'utf-8');
+    api.writeTmpFile({
+      path: 'plugin-svg-sprite/icon.less',
+      content: Mustache.render(iconStyleTpl, {}),
+    });
   });
 
   // 在入口文件里import生成的临时文件loadSvg.ts
-  api.addEntryImports(() => {
-    return {
-      source: join(api.paths.absTmpPath!, 'plugin-svg-sprite/loadSvg.ts'),
-    }
-  });
+  api.addEntryImports(() => ({
+    source: join(api.paths.absTmpPath!, 'plugin-svg-sprite/loadSvg.ts'),
+  }));
 
   api.addUmiExports(() => [
     {
-      source: join(api.paths.absTmpPath!, 'plugin-svg-sprite/icon.tsx'),
-      specifiers: [{ local: 'default', exported: 'CustomizeIcon' }],
+      exportAll: true,
+      source: '../plugin-svg-sprite/icon',
     }
   ]);
 }
